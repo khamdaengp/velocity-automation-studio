@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import MonacoEditor from '@monaco-editor/react'
 import appLogo from '../assets/icon.png'
+import { VisualStepBuilder } from './VisualStepBuilder'
 import {
   Save,
   Play,
@@ -12,7 +13,9 @@ import {
   CheckCircle2,
   ChevronRight,
   SplitSquareVertical,
-  Terminal
+  Terminal,
+  LayoutList,
+  Code2
 } from 'lucide-react'
 
 interface EditorProps {
@@ -74,7 +77,16 @@ export const Editor: React.FC<EditorProps> = ({
 
   const fileName = filePath.split(/[\\/]/).pop() || filePath
   const extension = fileName.split('.').pop() || 'js'
-  const language = extension === 'json' ? 'json' : extension === 'ts' ? 'typescript' : 'javascript'
+  const language = extension === 'json' || extension === 'tc' || extension === 'tcs' ? 'json' : extension === 'ts' ? 'typescript' : 'javascript'
+
+  const isDeclarativeTc = filePath ? filePath.endsWith('.tc') : false
+  const [editorMode, setEditorMode] = useState<'visual' | 'code'>(isDeclarativeTc ? 'visual' : 'code')
+
+  useEffect(() => {
+    if (filePath?.endsWith('.tc')) {
+      setEditorMode('visual')
+    }
+  }, [filePath])
 
   // Path segments for breadcrumbs
   const pathParts = filePath.replace(/\\/g, '/').split('/').filter(Boolean)
@@ -194,6 +206,57 @@ export const Editor: React.FC<EditorProps> = ({
 
         {/* Tab Right Action Icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px' }}>
+          {/* Dual-Mode Switcher */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: '#27272a',
+            borderRadius: '4px',
+            padding: '2px',
+            marginRight: '6px'
+          }}>
+            <button
+              onClick={() => setEditorMode('visual')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '3px',
+                border: 'none',
+                backgroundColor: editorMode === 'visual' ? '#0284c7' : 'transparent',
+                color: editorMode === 'visual' ? '#ffffff' : '#a1a1aa',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="No-Code Visual Step Builder"
+            >
+              <LayoutList size={12} />
+              <span>Visual</span>
+            </button>
+            <button
+              onClick={() => setEditorMode('code')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '3px',
+                border: 'none',
+                backgroundColor: editorMode === 'code' ? '#0284c7' : 'transparent',
+                color: editorMode === 'code' ? '#ffffff' : '#a1a1aa',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Monaco Code Script Editor"
+            >
+              <Code2 size={12} />
+              <span>Code</span>
+            </button>
+          </div>
+
           {onRunTest && (
             <button
               onClick={onRunTest}
@@ -290,35 +353,43 @@ export const Editor: React.FC<EditorProps> = ({
         ))}
       </div>
 
-      {/* Embedded Monaco Editor */}
-      <div style={{ flex: 1 }}>
-        <MonacoEditor
-          height="100%"
-          language={language}
-          value={content}
-          theme="vscode-velocity-dark"
-          beforeMount={handleEditorWillMount}
-          onChange={(val) => onChange(val || '')}
-          options={{
-            fontSize: 14,
-            lineHeight: 24,
-            fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
-            fontLigatures: true,
-            fontWeight: '400',
-            letterSpacing: 0.4,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            lineNumbers: 'on',
-            renderLineHighlight: 'all',
-            padding: { top: 8, bottom: 8 },
-            smoothScrolling: true,
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on'
-          }}
+      {/* Editor Body: Visual No-Code Step Builder vs Monaco Code Editor */}
+      {editorMode === 'visual' ? (
+        <VisualStepBuilder
+          content={content}
+          onChange={onChange}
+          filePath={filePath}
         />
-      </div>
+      ) : (
+        <div style={{ flex: 1 }}>
+          <MonacoEditor
+            height="100%"
+            language={language}
+            value={content}
+            theme="vscode-velocity-dark"
+            beforeMount={handleEditorWillMount}
+            onChange={(val) => onChange(val || '')}
+            options={{
+              fontSize: 14,
+              lineHeight: 24,
+              fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+              fontLigatures: true,
+              fontWeight: '400',
+              letterSpacing: 0.4,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              tabSize: 2,
+              lineNumbers: 'on',
+              renderLineHighlight: 'all',
+              padding: { top: 8, bottom: 8 },
+              smoothScrolling: true,
+              cursorBlinking: 'smooth',
+              cursorSmoothCaretAnimation: 'on'
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }

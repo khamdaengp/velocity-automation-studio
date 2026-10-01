@@ -6,33 +6,50 @@ const fs = require('fs')
 const path = require('path')
 
 async function executeTc(tcData, page, context, browser, options = {}) {
-  const { delay = 0, timeout = 5000 } = options
+  const { delay = 0, timeout = 7000, db, env, api } = options
   const results = []
+
+  const resolveVal = (val) => {
+    if (!val || typeof val !== 'string') return val
+    if (env && typeof env.resolve === 'function') {
+      return env.resolve(val)
+    }
+    return val
+  }
 
   console.log(`[Interpreter] 📋 Executing Test Case: "${tcData.name || tcData.id}" (${tcData.commands?.length || 0} steps)`)
 
   for (let i = 0; i < (tcData.commands || []).length; i++) {
     const cmd = tcData.commands[i]
     const stepStart = Date.now()
-    const { command, target, value } = cmd
+    const rawCommand = cmd.command || ''
+    const target = resolveVal(cmd.target || '')
+    const value = resolveVal(cmd.value || '')
+    const desc = cmd.description ? ` (${cmd.description})` : ''
 
-    console.log(`  [Step ${i + 1}] ▶️ ${command.toUpperCase()} | target: "${target}" | value: "${value}"`)
+    console.log(`  [Step ${i + 1}] ▶️ ${rawCommand.toUpperCase()}${desc} | target: "${target}" | value: "${value}"`)
 
     if (delay > 0) {
       await new Promise((r) => setTimeout(r, delay))
     }
 
     try {
-      switch (command.toLowerCase()) {
+      switch (rawCommand.toLowerCase()) {
         case 'open':
         case 'goto':
         case 'navigate': {
-          await page.goto(target, { timeout: 10000, waitUntil: 'load' })
+          await page.goto(target, { timeout: 15000, waitUntil: 'load' })
           break
         }
 
         case 'click': {
           await page.click(target, { timeout })
+          break
+        }
+
+        case 'dblclick':
+        case 'doubleclick': {
+          await page.dblclick(target, { timeout })
           break
         }
 
@@ -49,6 +66,27 @@ async function executeTc(tcData, page, context, browser, options = {}) {
           break
         }
 
+        case 'check': {
+          await page.check(target, { timeout })
+          break
+        }
+
+        case 'uncheck': {
+          await page.uncheck(target, { timeout })
+          break
+        }
+
+        case 'hover': {
+          await page.hover(target, { timeout })
+          break
+        }
+
+        case 'select':
+        case 'selectoption': {
+          await page.selectOption(target, value, { timeout })
+          break
+        }
+
         case 'asserttext':
         case 'verifytext': {
           const el = page.locator(target).first()
@@ -56,6 +94,20 @@ async function executeTc(tcData, page, context, browser, options = {}) {
           if (!text || !text.includes(value)) {
             throw new Error(`Assertion failed: Expected "${value}" inside "${target}", found "${text?.trim()}"`)
           }
+          break
+        }
+
+        case 'assertvisible':
+        case 'verifyvisible': {
+          const el = page.locator(target).first()
+          await el.waitFor({ state: 'visible', timeout })
+          break
+        }
+
+        case 'assertnotvisible':
+        case 'verifyhidden': {
+          const el = page.locator(target).first()
+          await el.waitFor({ state: 'hidden', timeout })
           break
         }
 
@@ -84,24 +136,60 @@ async function executeTc(tcData, page, context, browser, options = {}) {
         }
 
         case 'pause':
-        case 'sleep': {
+        case 'sleep':
+        case 'wait': {
           const ms = parseInt(target || value || '1000', 10)
           await new Promise((r) => setTimeout(r, ms))
           break
         }
 
+        case 'scroll':
+        case 'scrollto': {
+          await page.locator(target).scrollIntoViewIfNeeded({ timeout })
+          break
+        }
+
+        case 'apiget': {
+          if (!api) throw new Error('API Client is not available in runner context')
+          const res = await api.get(target)
+          console.log(`    📡 API GET ${target} -> Status: ${res.status}`)
+          if (value && res.status !== parseInt(value, 10)) {
+            throw new Error(`API Status Assertion failed: Expected ${value}, got ${res.status}`)
+          }
+          break
+        }
+
+        case 'apipost': {
+          if (!api) throw new Error('API Client is not available in runner context')
+          let payload = {}
+          try {
+            if (value) payload = JSON.parse(value)
+          } catch {}
+          const res = await api.post(target, payload)
+          console.log(`    📡 API POST ${target} -> Status: ${res.status}`)
+          break
+        }
+
+        case 'dbquery': {
+          if (!db) throw new Error('Database Engine is not available in runner context')
+          const profileId = value || 'sqlite-local'
+          const rows = await db.query(profileId, target)
+          console.log(`    🗄️ Executed DB Query on [${profileId}]: ${rows.length} rows returned`)
+          break
+        }
+
         default: {
-          console.log(`  ⚠️ Keyword: "${command}"`)
+          console.log(`  ⚠️ Unhandled keyword: "${rawCommand}"`)
         }
       }
 
       const stepTime = Date.now() - stepStart
       console.log(`    ✅ Step ${i + 1} passed in ${stepTime}ms`)
-      results.push({ step: i + 1, command, target, status: 'passed', timeMs: stepTime })
+      results.push({ step: i + 1, command: rawCommand, target, status: 'passed', timeMs: stepTime })
     } catch (err) {
       const stepTime = Date.now() - stepStart
       console.error(`    ❌ Step ${i + 1} failed: ${err.message}`)
-      results.push({ step: i + 1, command, target, status: 'failed', error: err.message, timeMs: stepTime })
+      results.push({ step: i + 1, command: rawCommand, target, status: 'failed', error: err.message, timeMs: stepTime })
       throw err
     }
   }

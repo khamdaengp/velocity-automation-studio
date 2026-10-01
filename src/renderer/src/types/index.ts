@@ -64,3 +64,24 @@ export interface DbQueryResult {
   durationMs: number
   error?: string
 }
+
+export interface AuthProfile {
+  id: string
+  name: string
+  file: string
+}
+
+export interface TcCommand {
+  command: string
+  target: string
+  value?: string
+  description?: string
+}
+
+export interface TestCaseData {
+  id: string
+  name: string
+  description?: string
+  authState?: string
+  commands: TcCommand[]
+}

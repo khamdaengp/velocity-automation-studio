@@ -80,6 +80,11 @@ export interface IElectronAPI {
   saveDbProfiles: (profiles: DbProfile[]) => Promise<{ success: boolean; error?: string }>
   testDbConnection: (profile: DbProfile) => Promise<{ success: boolean; message: string }>
   runDbQuery: (profileOrId: DbProfile | string, sql: string, params?: any[]) => Promise<DbQueryResult>
+
+  // Persistent Auth State Management
+  getAuthProfiles: () => Promise<{ id: string; name: string; file: string }[]>
+  recordAuthSession: (options: { url: string; profileName: string }) => Promise<{ success: boolean; profileName?: string; error?: string }>
+  deleteAuthProfile: (profileName: string) => Promise<{ success: boolean }>
 }
 
 const api: IElectronAPI = {
@@ -113,7 +118,12 @@ const api: IElectronAPI = {
   getDbProfiles: () => ipcRenderer.invoke('db:getProfiles'),
   saveDbProfiles: (profiles) => ipcRenderer.invoke('db:saveProfiles', profiles),
   testDbConnection: (profile) => ipcRenderer.invoke('db:testConnection', profile),
-  runDbQuery: (profileOrId, sql, params) => ipcRenderer.invoke('db:query', profileOrId, sql, params)
+  runDbQuery: (profileOrId, sql, params) => ipcRenderer.invoke('db:query', profileOrId, sql, params),
+
+  // Persistent Auth State Management
+  getAuthProfiles: () => ipcRenderer.invoke('auth:listProfiles'),
+  recordAuthSession: (options) => ipcRenderer.invoke('auth:recordSession', options),
+  deleteAuthProfile: (profileName) => ipcRenderer.invoke('auth:deleteProfile', profileName)
 }
 
 contextBridge.exposeInMainWorld('api', api)

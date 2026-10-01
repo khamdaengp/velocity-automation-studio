@@ -1,0 +1,32 @@
+{
+  "id": "tc-no-code-demo",
+  "name": "E-Commerce Flow (No-Code Visual)",
+  "description": "Visual No-Code flow testing navigation, form fill, API verification, and database query",
+  "authState": "",
+  "commands": [
+    {
+      "command": "open",
+      "target": "https://jsonplaceholder.typicode.com",
+      "value": "",
+      "description": "Open website"
+    },
+    {
+      "command": "apiget",
+      "target": "https://jsonplaceholder.typicode.com/todos/1",
+      "value": "200",
+      "description": "Verify backend API status 200"
+    },
+    {
+      "command": "dbquery",
+      "target": "SELECT 1 as verified;",
+      "value": "sqlite-local",
+      "description": "Confirm database connectivity"
+    },
+    {
+      "command": "pause",
+      "target": "500",
+      "value": "",
+      "description": "Brief pause"
+    }
+  ]
+}

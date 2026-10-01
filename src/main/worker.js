@@ -158,6 +158,30 @@ async function main() {
       throw new Error(`Test file not found: ${fullPath}`);
     }
 
+    const fileExt = path.extname(fullPath).toLowerCase();
+    const fileContent = fs.readFileSync(fullPath, 'utf8');
+
+    let storageState = undefined;
+    const authStateName = process.env.AUTH_STATE;
+    if (authStateName) {
+      const authPath = path.join(workspaceDir, '.auth', `${authStateName}.json`);
+      if (fs.existsSync(authPath)) {
+        console.log(`[Runner] 🔑 Attaching Authenticated Session Profile: ${authStateName}`);
+        storageState = authPath;
+      }
+    } else if (fileExt === '.tc') {
+      try {
+        const parsed = JSON.parse(fileContent);
+        if (parsed.authState) {
+          const authPath = path.join(workspaceDir, '.auth', `${parsed.authState}.json`);
+          if (fs.existsSync(authPath)) {
+            console.log(`[Runner] 🔑 Attaching Authenticated Session Profile: ${parsed.authState}`);
+            storageState = authPath;
+          }
+        }
+      } catch {}
+    }
+
     // Launch Chromium
     browser = await chromium.launch({
       headless: isHeadless,
@@ -166,6 +190,7 @@ async function main() {
 
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
+      storageState,
       recordVideo: undefined
     });
     const page = await context.newPage();
@@ -221,9 +246,6 @@ async function main() {
     };
 
     console.log(`[Runner] ⏱️ Engine ready in ${Date.now() - startTime}ms (Web + API + DB + Env)`);
-
-    const fileExt = path.extname(fullPath).toLowerCase();
-    const fileContent = fs.readFileSync(fullPath, 'utf8');
 
     if (fileExt === '.tc') {
       console.log(`[Runner] 📋 Executing Test Case format (.tc)...`);

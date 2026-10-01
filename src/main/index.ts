@@ -291,6 +291,69 @@ app.whenReady().then(() => {
     })
   })
 
+  // Persistent Auth State Management
+  ipcMain.handle('auth:listProfiles', async () => {
+    const authDir = path.join(workspaceDir, '.auth')
+    if (!fs.existsSync(authDir)) return []
+    const files = fs.readdirSync(authDir)
+    return files
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => ({
+        id: f.replace('.json', ''),
+        name: f.replace('.json', ''),
+        file: f
+      }))
+  })
+
+  ipcMain.handle('auth:recordSession', async (_, options: { url: string; profileName: string }) => {
+    try {
+      const { chromium } = await import('playwright')
+      const authDir = path.join(workspaceDir, '.auth')
+      if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true })
+
+      const cleanName = (options.profileName || 'session').trim().replace(/[^a-zA-Z0-9_-]/g, '_')
+      const stateFile = path.join(authDir, `${cleanName}.json`)
+
+      const browser = await chromium.launch({
+        headless: false,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      })
+      const context = await browser.newContext()
+      const page = await context.newPage()
+      await page.goto(options.url || 'https://google.com')
+
+      return new Promise((resolve) => {
+        let isSaved = false
+        const saveAndClose = async () => {
+          if (isSaved) return
+          isSaved = true
+          try {
+            await context.storageState({ path: stateFile })
+            await browser.close().catch(() => {})
+            resolve({ success: true, profileName: cleanName, stateFile })
+          } catch (err: any) {
+            resolve({ success: false, error: err.message })
+          }
+        }
+
+        page.on('close', saveAndClose)
+        browser.on('disconnected', saveAndClose)
+      })
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('auth:deleteProfile', async (_, profileName: string) => {
+    const authDir = path.join(workspaceDir, '.auth')
+    const stateFile = path.join(authDir, `${profileName}.json`)
+    if (fs.existsSync(stateFile)) {
+      fs.unlinkSync(stateFile)
+      return { success: true }
+    }
+    return { success: false }
+  })
+
   ipcMain.handle('system:metrics', async () => {
     const mem = process.memoryUsage()
     return {

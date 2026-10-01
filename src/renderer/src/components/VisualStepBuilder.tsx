@@ -45,6 +45,10 @@ const ACTION_OPTIONS = [
   { value: 'pause', label: '⏱️ Pause / Wait (ms)', category: 'util', desc: 'Pauses for N milliseconds' },
   { value: 'apiget', label: '📡 API GET', category: 'api', desc: 'Performs HTTP GET request' },
   { value: 'apipost', label: '📡 API POST', category: 'api', desc: 'Performs HTTP POST request' },
+  { value: 'extractapi', label: '📥 Extract API Value', category: 'api', desc: 'Extracts property from last API response into {{variable}}' },
+  { value: 'extractui', label: '📥 Extract UI Text', category: 'web', desc: 'Extracts text from element into {{variable}}' },
+  { value: 'extractdb', label: '📥 Extract DB Value', category: 'db', desc: 'Extracts first cell from query into {{variable}}' },
+  { value: 'setvar', label: '💾 Set Variable', category: 'util', desc: 'Stores value into {{variable}} for later steps' },
   { value: 'dbquery', label: '🗄️ Query Database', category: 'db', desc: 'Executes SQL query on DB profile' }
 ]
 
@@ -387,6 +391,8 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
                         ? '#4ade80'
                         : cmd.command.startsWith('api')
                         ? '#60a5fa'
+                        : cmd.command.startsWith('extract') || cmd.command === 'setvar'
+                        ? '#a78bfa'
                         : cmd.command === 'dbquery'
                         ? '#f59e0b'
                         : '#ffffff',
@@ -415,6 +421,14 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
                         ? 'e.g. {{baseUrl}}/dashboard'
                         : cmd.command.startsWith('api')
                         ? 'e.g. {{apiUrl}}/users'
+                        : cmd.command === 'extractapi'
+                        ? 'JSON property: e.g. token or data.id'
+                        : cmd.command === 'extractui'
+                        ? 'UI selector: e.g. #order-id'
+                        : cmd.command === 'extractdb'
+                        ? 'SQL query: e.g. SELECT id FROM orders'
+                        : cmd.command === 'setvar'
+                        ? 'Variable name: e.g. MY_KEY'
                         : cmd.command === 'dbquery'
                         ? 'e.g. SELECT * FROM users'
                         : 'Selector: #id, .class, button[type="submit"]'
@@ -446,6 +460,10 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
                         ? 'Enter, Tab, Escape'
                         : cmd.command.startsWith('assert')
                         ? 'Expected text or value'
+                        : cmd.command === 'extractapi' || cmd.command === 'extractui' || cmd.command === 'extractdb'
+                        ? 'Variable to store into: e.g. USER_ID'
+                        : cmd.command === 'setvar'
+                        ? 'Value to store'
                         : cmd.command === 'dbquery'
                         ? 'DB Profile (e.g. sqlite-local)'
                         : 'Value (optional)'

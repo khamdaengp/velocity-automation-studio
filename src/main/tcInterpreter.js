@@ -19,6 +19,8 @@ async function executeTc(tcData, page, context, browser, options = {}) {
 
   console.log(`[Interpreter] 📋 Executing Test Case: "${tcData.name || tcData.id}" (${tcData.commands?.length || 0} steps)`)
 
+  let lastApiResponse = null
+
   for (let i = 0; i < (tcData.commands || []).length; i++) {
     const cmd = tcData.commands[i]
     const stepStart = Date.now()
@@ -153,6 +155,11 @@ async function executeTc(tcData, page, context, browser, options = {}) {
           if (!api) throw new Error('API Client is not available in runner context')
           const res = await api.get(target)
           console.log(`    📡 API GET ${target} -> Status: ${res.status}`)
+          try {
+            lastApiResponse = await res.json()
+          } catch {
+            lastApiResponse = await res.text().catch(() => null)
+          }
           if (value && res.status !== parseInt(value, 10)) {
             throw new Error(`API Status Assertion failed: Expected ${value}, got ${res.status}`)
           }
@@ -167,6 +174,66 @@ async function executeTc(tcData, page, context, browser, options = {}) {
           } catch {}
           const res = await api.post(target, payload)
           console.log(`    📡 API POST ${target} -> Status: ${res.status}`)
+          try {
+            lastApiResponse = await res.json()
+          } catch {
+            lastApiResponse = await res.text().catch(() => null)
+          }
+          break
+        }
+
+        case 'setvar':
+        case 'setvariable': {
+          if (env && env.set) {
+            env.set(target, value)
+            console.log(`    💾 Stored variable: {{${target}}} = "${value}"`)
+          }
+          break
+        }
+
+        case 'extractapi': {
+          if (!lastApiResponse) throw new Error('No API response available to extract from. Call apiget or apipost first.')
+          let extracted = lastApiResponse
+          if (target && typeof lastApiResponse === 'object') {
+            const parts = target.split('.')
+            for (const p of parts) {
+              if (extracted !== undefined && extracted !== null) {
+                extracted = extracted[p]
+              }
+            }
+          }
+          const varName = value || target
+          if (env && env.set) {
+            env.set(varName, extracted !== undefined ? extracted : '')
+            console.log(`    💾 Extracted API [${target}] -> {{${varName}}} = "${extracted}"`)
+          }
+          break
+        }
+
+        case 'extractui': {
+          const el = page.locator(target).first()
+          const text = (await el.textContent({ timeout })) || ''
+          const trimmed = text.trim()
+          if (env && env.set) {
+            env.set(value, trimmed)
+            console.log(`    💾 Extracted UI [${target}] -> {{${value}}} = "${trimmed}"`)
+          }
+          break
+        }
+
+        case 'extractdb': {
+          if (!db) throw new Error('Database Engine is not available in runner context')
+          const rows = await db.query('sqlite-local', target)
+          let extracted = ''
+          if (rows && rows.length > 0) {
+            const firstRow = rows[0]
+            const firstKey = Object.keys(firstRow)[0]
+            extracted = firstRow[firstKey]
+          }
+          if (env && env.set) {
+            env.set(value, extracted)
+            console.log(`    💾 Extracted DB [${target}] -> {{${value}}} = "${extracted}"`)
+          }
           break
         }
 

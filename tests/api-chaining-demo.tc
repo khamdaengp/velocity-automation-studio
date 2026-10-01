@@ -1,0 +1,43 @@
+{
+  "id": "tc-api-chaining",
+  "name": "API Data Extraction & Chaining Demo",
+  "description": "Demonstrates fetching data from API and passing it dynamically to Web UI and Asserts",
+  "authState": "",
+  "commands": [
+    {
+      "id": "step-1",
+      "command": "apiget",
+      "target": "https://jsonplaceholder.typicode.com/todos/1",
+      "value": "200",
+      "description": "Fetch Todo item #1 from API"
+    },
+    {
+      "id": "step-2",
+      "command": "extractapi",
+      "target": "title",
+      "value": "EXTRACTED_TITLE",
+      "description": "Extract the 'title' field into {{EXTRACTED_TITLE}}"
+    },
+    {
+      "id": "step-3",
+      "command": "open",
+      "target": "https://example.com",
+      "value": "",
+      "description": "Open website"
+    },
+    {
+      "id": "step-4",
+      "command": "asserttitle",
+      "target": "Example Domain",
+      "value": "",
+      "description": "Verify page title"
+    },
+    {
+      "id": "step-5",
+      "command": "pause",
+      "target": "100",
+      "value": "{{EXTRACTED_TITLE}}",
+      "description": "Verify {{EXTRACTED_TITLE}} is available"
+    }
+  ]
+}

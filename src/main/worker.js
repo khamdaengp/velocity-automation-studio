@@ -121,6 +121,10 @@ function createEnvHelper(workspaceDir) {
     all() {
       return { ...varMap };
     },
+    set(key, value) {
+      varMap[key] = String(value);
+      return value;
+    },
     resolve(input) {
       if (!input || typeof input !== 'string') return input;
       let out = input;

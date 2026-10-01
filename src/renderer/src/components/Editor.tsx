@@ -23,11 +23,12 @@ interface EditorProps {
   content: string
   onChange: (value: string) => void
   onSave: () => void
-  onRunTest?: () => void
+  onRunTest?: (targetPath?: string) => void
   onClose?: () => void
   onToggleTerminal?: () => void
   showTerminal?: boolean
   isDirty: boolean
+  allFiles?: { path: string; name: string }[]
 }
 
 export const Editor: React.FC<EditorProps> = ({
@@ -39,8 +40,112 @@ export const Editor: React.FC<EditorProps> = ({
   onClose,
   onToggleTerminal,
   showTerminal,
-  isDirty
+  isDirty,
+  allFiles = []
 }) => {
+  // Split Editor states
+  const [isSplit, setIsSplit] = useState<boolean>(false)
+  const [splitFilePath, setSplitFilePath] = useState<string | null>(null)
+  const [splitContent, setSplitContent] = useState<string>('')
+  const [splitIsDirty, setSplitIsDirty] = useState<boolean>(false)
+  const [splitEditorMode, setSplitEditorMode] = useState<'visual' | 'code'>('code')
+
+  // Main editor mode (Visual or Code for .tc files)
+  const isDeclarativeTc = filePath ? filePath.endsWith('.tc') : false
+  const [editorMode, setEditorMode] = useState<'visual' | 'code'>(isDeclarativeTc ? 'visual' : 'code')
+
+  useEffect(() => {
+    if (filePath?.endsWith('.tc')) {
+      setEditorMode('visual')
+    }
+    // If split is open with same file, update splitContent as well
+    if (isSplit && splitFilePath === filePath) {
+      setSplitContent(content)
+    }
+  }, [filePath])
+
+  // Split toggle action
+  const handleToggleSplit = () => {
+    if (!isSplit) {
+      setSplitFilePath(filePath)
+      setSplitContent(content)
+      setSplitIsDirty(false)
+      // When splitting a .tc file, make left Visual and right Code by default
+      if (filePath?.endsWith('.tc')) {
+        setEditorMode('visual')
+        setSplitEditorMode('code')
+      } else {
+        setSplitEditorMode('code')
+      }
+      setIsSplit(true)
+    } else {
+      setIsSplit(false)
+    }
+  }
+
+  // Handle changes in left editor
+  const handleLeftChange = (val: string) => {
+    onChange(val)
+    if (isSplit && splitFilePath === filePath) {
+      setSplitContent(val)
+    }
+  }
+
+  // Handle changes in right split editor
+  const handleRightChange = (val: string) => {
+    setSplitContent(val)
+    if (splitFilePath === filePath) {
+      onChange(val)
+    } else {
+      setSplitIsDirty(true)
+    }
+  }
+
+  // Switch right pane file
+  const handleSelectRightFile = async (newPath: string) => {
+    if (newPath === splitFilePath) return
+    if (newPath === filePath) {
+      setSplitFilePath(filePath)
+      setSplitContent(content)
+      setSplitIsDirty(false)
+      if (filePath.endsWith('.tc')) {
+        setSplitEditorMode(editorMode === 'visual' ? 'code' : 'visual')
+      }
+      return
+    }
+    try {
+      // @ts-ignore
+      const text = await window.api.readFile(newPath)
+      setSplitFilePath(newPath)
+      setSplitContent(text)
+      setSplitIsDirty(false)
+      if (newPath.endsWith('.tc')) {
+        setSplitEditorMode('visual')
+      } else {
+        setSplitEditorMode('code')
+      }
+    } catch (e) {
+      console.error('Error opening file in right split:', e)
+    }
+  }
+
+  // Save right pane file
+  const handleSaveRight = async () => {
+    if (!splitFilePath) return
+    if (splitFilePath === filePath) {
+      onSave()
+      setSplitIsDirty(false)
+    } else {
+      try {
+        // @ts-ignore
+        await window.api.writeFile(splitFilePath, splitContent)
+        setSplitIsDirty(false)
+      } catch (e) {
+        console.error('Failed to save file in right editor:', e)
+      }
+    }
+  }
+
   if (!filePath) {
     return (
       <div style={{
@@ -79,18 +184,18 @@ export const Editor: React.FC<EditorProps> = ({
   const extension = fileName.split('.').pop() || 'js'
   const language = extension === 'json' || extension === 'tc' || extension === 'tcs' ? 'json' : extension === 'ts' ? 'typescript' : 'javascript'
 
-  const isDeclarativeTc = filePath ? filePath.endsWith('.tc') : false
-  const [editorMode, setEditorMode] = useState<'visual' | 'code'>(isDeclarativeTc ? 'visual' : 'code')
-
-  useEffect(() => {
-    if (filePath?.endsWith('.tc')) {
-      setEditorMode('visual')
-    }
-  }, [filePath])
+  // Right pane metadata
+  const rightFileName = splitFilePath ? (splitFilePath.split(/[\\/]/).pop() || splitFilePath) : ''
+  const rightExtension = rightFileName.split('.').pop() || 'js'
+  const rightLanguage = rightExtension === 'json' || rightExtension === 'tc' || rightExtension === 'tcs' ? 'json' : rightExtension === 'ts' ? 'typescript' : 'javascript'
+  const isRightTc = splitFilePath ? splitFilePath.endsWith('.tc') : false
 
   // Path segments for breadcrumbs
   const pathParts = filePath.replace(/\\/g, '/').split('/').filter(Boolean)
   const breadcrumbParts = pathParts.slice(Math.max(0, pathParts.length - 3))
+
+  const rightPathParts = splitFilePath ? splitFilePath.replace(/\\/g, '/').split('/').filter(Boolean) : []
+  const rightBreadcrumbParts = rightPathParts.slice(Math.max(0, rightPathParts.length - 3))
 
   const getFileIcon = (name: string) => {
     if (name.endsWith('.spec.js') || name.endsWith('.test.js')) {
@@ -115,32 +220,34 @@ export const Editor: React.FC<EditorProps> = ({
   }
 
   const handleEditorWillMount = (monaco: any) => {
-    monaco.editor.defineTheme('vscode-velocity-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6a9955', fontStyle: 'italic' },
-        { token: 'keyword', foreground: '569cd6', fontStyle: 'bold' },
-        { token: 'string', foreground: 'ce9178' },
-        { token: 'number', foreground: 'b5cea8' },
-        { token: 'identifier', foreground: 'd4d4d4' },
-        { token: 'type', foreground: '4ec9b0' },
-        { token: 'delimiter', foreground: '808080' }
-      ],
-      colors: {
-        'editor.background': '#1e1e1e', // Classic VS Code dark background
-        'editor.foreground': '#d4d4d4',
-        'editor.lineHighlightBackground': '#2a2d2e',
-        'editorLineNumber.foreground': '#858585',
-        'editorLineNumber.activeForeground': '#c6c6c6',
-        'editor.selectionBackground': '#264f78',
-        'editor.inactiveSelectionBackground': '#3a3d41',
-        'editorCursor.foreground': '#007acc',
-        'editorWhitespace.foreground': '#3b3a32',
-        'editorIndentGuide.background': '#404040',
-        'editorIndentGuide.activeBackground': '#707070'
-      }
-    })
+    try {
+      monaco.editor.defineTheme('vscode-velocity-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [
+          { token: 'comment', foreground: '6a9955', fontStyle: 'italic' },
+          { token: 'keyword', foreground: '569cd6', fontStyle: 'bold' },
+          { token: 'string', foreground: 'ce9178' },
+          { token: 'number', foreground: 'b5cea8' },
+          { token: 'identifier', foreground: 'd4d4d4' },
+          { token: 'type', foreground: '4ec9b0' },
+          { token: 'delimiter', foreground: '808080' }
+        ],
+        colors: {
+          'editor.background': '#1e1e1e',
+          'editor.foreground': '#d4d4d4',
+          'editor.lineHighlightBackground': '#2a2d2e',
+          'editorLineNumber.foreground': '#858585',
+          'editorLineNumber.activeForeground': '#c6c6c6',
+          'editor.selectionBackground': '#264f78',
+          'editor.inactiveSelectionBackground': '#3a3d41',
+          'editorCursor.foreground': '#007acc',
+          'editorWhitespace.foreground': '#3b3a32',
+          'editorIndentGuide.background': '#404040',
+          'editorIndentGuide.activeBackground': '#707070'
+        }
+      })
+    } catch {}
   }
 
   return (
@@ -151,10 +258,10 @@ export const Editor: React.FC<EditorProps> = ({
       backgroundColor: '#1e1e1e',
       overflow: 'hidden'
     }}>
-      {/* VS Code Tab Bar */}
+      {/* Top VS Code Tab Bar (Primary) */}
       <div style={{
         height: '35px',
-        backgroundColor: '#18181b', // VS Code inactive tab background
+        backgroundColor: '#18181b',
         borderBottom: '1px solid #27272a',
         display: 'flex',
         alignItems: 'center',
@@ -165,8 +272,8 @@ export const Editor: React.FC<EditorProps> = ({
         <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
           <div style={{
             height: '100%',
-            backgroundColor: '#1e1e1e', // VS Code active tab background
-            borderTop: '2px solid #007acc', // VS Code active tab blue top accent
+            backgroundColor: '#1e1e1e',
+            borderTop: '2px solid #007acc',
             borderRight: '1px solid #27272a',
             padding: '0 12px',
             display: 'flex',
@@ -206,60 +313,62 @@ export const Editor: React.FC<EditorProps> = ({
 
         {/* Tab Right Action Icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px' }}>
-          {/* Dual-Mode Switcher */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            backgroundColor: '#27272a',
-            borderRadius: '4px',
-            padding: '2px',
-            marginRight: '6px'
-          }}>
-            <button
-              onClick={() => setEditorMode('visual')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 8px',
-                borderRadius: '3px',
-                border: 'none',
-                backgroundColor: editorMode === 'visual' ? '#0284c7' : 'transparent',
-                color: editorMode === 'visual' ? '#ffffff' : '#a1a1aa',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-              title="No-Code Visual Step Builder"
-            >
-              <LayoutList size={12} />
-              <span>Visual</span>
-            </button>
-            <button
-              onClick={() => setEditorMode('code')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '2px 8px',
-                borderRadius: '3px',
-                border: 'none',
-                backgroundColor: editorMode === 'code' ? '#0284c7' : 'transparent',
-                color: editorMode === 'code' ? '#ffffff' : '#a1a1aa',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-              title="Monaco Code Script Editor"
-            >
-              <Code2 size={12} />
-              <span>Code</span>
-            </button>
-          </div>
+          {/* Dual-Mode Switcher for Left/Primary Editor */}
+          {isDeclarativeTc && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#27272a',
+              borderRadius: '4px',
+              padding: '2px',
+              marginRight: '6px'
+            }}>
+              <button
+                onClick={() => setEditorMode('visual')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 8px',
+                  borderRadius: '3px',
+                  border: 'none',
+                  backgroundColor: editorMode === 'visual' ? '#0284c7' : 'transparent',
+                  color: editorMode === 'visual' ? '#ffffff' : '#a1a1aa',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="No-Code Visual Step Builder"
+              >
+                <LayoutList size={12} />
+                <span>Visual</span>
+              </button>
+              <button
+                onClick={() => setEditorMode('code')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '2px 8px',
+                  borderRadius: '3px',
+                  border: 'none',
+                  backgroundColor: editorMode === 'code' ? '#0284c7' : 'transparent',
+                  color: editorMode === 'code' ? '#ffffff' : '#a1a1aa',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Monaco Code Script Editor"
+              >
+                <Code2 size={12} />
+                <span>Code</span>
+              </button>
+            </div>
+          )}
 
           {onRunTest && (
             <button
-              onClick={onRunTest}
+              onClick={() => onRunTest(filePath)}
               title="Run Active Test (F5)"
               style={{
                 background: 'none',
@@ -293,12 +402,14 @@ export const Editor: React.FC<EditorProps> = ({
             <Save size={13} />
           </button>
 
+          {/* Split Editor Right Toggle */}
           <button
-            title="Split Editor Right"
+            onClick={handleToggleSplit}
+            title={isSplit ? 'Close Split Editor' : 'Split Editor Right'}
             style={{
-              background: 'none',
+              background: isSplit ? '#007acc' : 'none',
               border: 'none',
-              color: '#858585',
+              color: isSplit ? '#ffffff' : '#858585',
               cursor: 'pointer',
               padding: '4px 6px',
               borderRadius: '4px',
@@ -330,64 +441,377 @@ export const Editor: React.FC<EditorProps> = ({
         </div>
       </div>
 
-      {/* VS Code Breadcrumbs Bar */}
-      <div style={{
-        height: '22px',
-        backgroundColor: '#1e1e1e',
-        borderBottom: '1px solid #27272a',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 12px',
-        fontSize: '11px',
-        color: '#858585',
-        gap: '4px',
-        userSelect: 'none'
-      }}>
-        {breadcrumbParts.map((part, idx) => (
-          <React.Fragment key={idx}>
-            {idx > 0 && <ChevronRight size={12} color="#555555" />}
-            <span style={{ color: idx === breadcrumbParts.length - 1 ? '#cccccc' : '#858585' }}>
-              {part}
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
+      {/* Editor Body: Single or Split Panes */}
+      {!isSplit ? (
+        /* SINGLE PANE MODE */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Breadcrumbs Bar */}
+          <div style={{
+            height: '22px',
+            backgroundColor: '#1e1e1e',
+            borderBottom: '1px solid #27272a',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 12px',
+            fontSize: '11px',
+            color: '#858585',
+            gap: '4px',
+            userSelect: 'none'
+          }}>
+            {breadcrumbParts.map((part, idx) => (
+              <React.Fragment key={idx}>
+                {idx > 0 && <ChevronRight size={12} color="#555555" />}
+                <span style={{ color: idx === breadcrumbParts.length - 1 ? '#cccccc' : '#858585' }}>
+                  {part}
+                </span>
+              </React.Fragment>
+            ))}
+          </div>
 
-      {/* Editor Body: Visual No-Code Step Builder vs Monaco Code Editor */}
-      {editorMode === 'visual' ? (
-        <VisualStepBuilder
-          content={content}
-          onChange={onChange}
-          filePath={filePath}
-        />
+          {/* Main Body */}
+          {editorMode === 'visual' ? (
+            <VisualStepBuilder
+              content={content}
+              onChange={handleLeftChange}
+              filePath={filePath}
+            />
+          ) : (
+            <div style={{ flex: 1 }}>
+              <MonacoEditor
+                height="100%"
+                language={language}
+                value={content}
+                theme="vscode-velocity-dark"
+                beforeMount={handleEditorWillMount}
+                onChange={(val) => handleLeftChange(val || '')}
+                options={{
+                  fontSize: 14,
+                  lineHeight: 24,
+                  fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+                  fontLigatures: true,
+                  fontWeight: '400',
+                  letterSpacing: 0.4,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  lineNumbers: 'on',
+                  renderLineHighlight: 'all',
+                  padding: { top: 8, bottom: 8 },
+                  smoothScrolling: true,
+                  cursorBlinking: 'smooth',
+                  cursorSmoothCaretAnimation: 'on'
+                }}
+              />
+            </div>
+          )}
+        </div>
       ) : (
-        <div style={{ flex: 1 }}>
-          <MonacoEditor
-            height="100%"
-            language={language}
-            value={content}
-            theme="vscode-velocity-dark"
-            beforeMount={handleEditorWillMount}
-            onChange={(val) => onChange(val || '')}
-            options={{
-              fontSize: 14,
-              lineHeight: 24,
-              fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
-              fontLigatures: true,
-              fontWeight: '400',
-              letterSpacing: 0.4,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              tabSize: 2,
-              lineNumbers: 'on',
-              renderLineHighlight: 'all',
-              padding: { top: 8, bottom: 8 },
-              smoothScrolling: true,
-              cursorBlinking: 'smooth',
-              cursorSmoothCaretAnimation: 'on'
-            }}
-          />
+        /* SPLIT PANE MODE (50% / 50%) */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
+          {/* LEFT PANE */}
+          <div style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRight: '1px solid #27272a',
+            overflow: 'hidden'
+          }}>
+            {/* Left Breadcrumbs */}
+            <div style={{
+              height: '22px',
+              backgroundColor: '#1e1e1e',
+              borderBottom: '1px solid #27272a',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 12px',
+              fontSize: '11px',
+              color: '#858585',
+              gap: '4px',
+              userSelect: 'none'
+            }}>
+              {breadcrumbParts.map((part, idx) => (
+                <React.Fragment key={idx}>
+                  {idx > 0 && <ChevronRight size={12} color="#555555" />}
+                  <span style={{ color: idx === breadcrumbParts.length - 1 ? '#cccccc' : '#858585' }}>
+                    {part}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Left Content */}
+            {editorMode === 'visual' ? (
+              <VisualStepBuilder
+                content={content}
+                onChange={handleLeftChange}
+                filePath={filePath}
+              />
+            ) : (
+              <div style={{ flex: 1 }}>
+                <MonacoEditor
+                  height="100%"
+                  language={language}
+                  value={content}
+                  theme="vscode-velocity-dark"
+                  beforeMount={handleEditorWillMount}
+                  onChange={(val) => handleLeftChange(val || '')}
+                  options={{
+                    fontSize: 13,
+                    lineHeight: 22,
+                    fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+                    fontLigatures: true,
+                    fontWeight: '400',
+                    letterSpacing: 0.3,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    lineNumbers: 'on',
+                    renderLineHighlight: 'all',
+                    padding: { top: 8, bottom: 8 }
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT PANE (SPLIT) */}
+          <div style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            {/* Right Pane Tab Bar */}
+            <div style={{
+              height: '35px',
+              backgroundColor: '#18181b',
+              borderBottom: '1px solid #27272a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0'
+            }}>
+              {/* Right Tab with File Selector */}
+              <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
+                <div style={{
+                  height: '100%',
+                  backgroundColor: '#1e1e1e',
+                  borderTop: '2px solid #38bdf8',
+                  borderRight: '1px solid #27272a',
+                  padding: '0 8px 0 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '13px',
+                  color: '#ffffff'
+                }}>
+                  {getFileIcon(rightFileName)}
+                  {/* File Selector Dropdown */}
+                  <select
+                    value={splitFilePath || ''}
+                    onChange={(e) => handleSelectRightFile(e.target.value)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      outline: 'none',
+                      maxWidth: '180px'
+                    }}
+                    title="Switch file in right pane"
+                  >
+                    <option value={filePath} style={{ backgroundColor: '#27272a' }}>
+                      {fileName} (Active)
+                    </option>
+                    {allFiles
+                      .filter((f) => f.path !== filePath)
+                      .map((f) => (
+                        <option key={f.path} value={f.path} style={{ backgroundColor: '#27272a' }}>
+                          {f.name}
+                        </option>
+                      ))}
+                  </select>
+                  {splitIsDirty || (splitFilePath === filePath && isDirty) ? (
+                    <span style={{ color: '#ffffff', fontSize: '14px', lineHeight: 1 }}>●</span>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Right Tab Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px' }}>
+                {/* Dual-Mode Switcher for Right Pane (if .tc) */}
+                {isRightTc && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: '#27272a',
+                    borderRadius: '4px',
+                    padding: '2px',
+                    marginRight: '6px'
+                  }}>
+                    <button
+                      onClick={() => setSplitEditorMode('visual')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        border: 'none',
+                        backgroundColor: splitEditorMode === 'visual' ? '#0284c7' : 'transparent',
+                        color: splitEditorMode === 'visual' ? '#ffffff' : '#a1a1aa',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                      title="Visual Step Builder"
+                    >
+                      <LayoutList size={11} />
+                      <span>Visual</span>
+                    </button>
+                    <button
+                      onClick={() => setSplitEditorMode('code')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        border: 'none',
+                        backgroundColor: splitEditorMode === 'code' ? '#0284c7' : 'transparent',
+                        color: splitEditorMode === 'code' ? '#ffffff' : '#a1a1aa',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                      title="Monaco Code Script Editor"
+                    >
+                      <Code2 size={11} />
+                      <span>Code</span>
+                    </button>
+                  </div>
+                )}
+
+                {onRunTest && splitFilePath && (
+                  <button
+                    onClick={() => onRunTest(splitFilePath)}
+                    title="Run This Test (Right Pane)"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#10b981',
+                      cursor: 'pointer',
+                      padding: '4px 6px',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Play size={13} fill="currentColor" />
+                  </button>
+                )}
+
+                <button
+                  onClick={handleSaveRight}
+                  title="Save Right File (Ctrl+S)"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: splitIsDirty || (splitFilePath === filePath && isDirty) ? '#007acc' : '#858585',
+                    cursor: 'pointer',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Save size={13} />
+                </button>
+
+                {/* Close Split Button */}
+                <button
+                  onClick={() => setIsSplit(false)}
+                  title="Close Split Editor"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#858585',
+                    cursor: 'pointer',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Right Breadcrumbs */}
+            <div style={{
+              height: '22px',
+              backgroundColor: '#1e1e1e',
+              borderBottom: '1px solid #27272a',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 12px',
+              fontSize: '11px',
+              color: '#858585',
+              gap: '4px',
+              userSelect: 'none'
+            }}>
+              {rightBreadcrumbParts.map((part, idx) => (
+                <React.Fragment key={idx}>
+                  {idx > 0 && <ChevronRight size={12} color="#555555" />}
+                  <span style={{ color: idx === rightBreadcrumbParts.length - 1 ? '#cccccc' : '#858585' }}>
+                    {part}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Right Content */}
+            {splitEditorMode === 'visual' && splitFilePath ? (
+              <VisualStepBuilder
+                content={splitContent}
+                onChange={handleRightChange}
+                filePath={splitFilePath}
+              />
+            ) : (
+              <div style={{ flex: 1 }}>
+                <MonacoEditor
+                  height="100%"
+                  language={rightLanguage}
+                  value={splitContent}
+                  theme="vscode-velocity-dark"
+                  beforeMount={handleEditorWillMount}
+                  onChange={(val) => handleRightChange(val || '')}
+                  options={{
+                    fontSize: 13,
+                    lineHeight: 22,
+                    fontFamily: "'JetBrains Mono', Consolas, 'Courier New', monospace",
+                    fontLigatures: true,
+                    fontWeight: '400',
+                    letterSpacing: 0.3,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    lineNumbers: 'on',
+                    renderLineHighlight: 'all',
+                    padding: { top: 8, bottom: 8 }
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

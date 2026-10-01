@@ -429,14 +429,14 @@ export const App: React.FC = () => {
     }
   }
 
-  const handleRunTest = async () => {
-    const target = activeFile || selectedNode?.path
+  const handleRunTest = async (targetPath?: string) => {
+    const target = targetPath || activeFile || selectedNode?.path
     if (!target) {
       alert('Please select a test script or project folder first!')
       return
     }
 
-    if (isDirty && activeFile) {
+    if (isDirty && activeFile && (!targetPath || targetPath === activeFile)) {
       await handleSaveFile()
     }
 
@@ -803,6 +803,17 @@ export const App: React.FC = () => {
               onToggleTerminal={() => setShowTerminal((prev) => !prev)}
               showTerminal={showTerminal}
               isDirty={isDirty}
+              allFiles={(() => {
+                const list: { path: string; name: string }[] = []
+                const collect = (nodes: FileNode[]) => {
+                  for (const n of nodes) {
+                    if (!n.isDir) list.push({ path: n.path, name: n.name })
+                    else if (n.children) collect(n.children)
+                  }
+                }
+                collect(tree)
+                return list
+              })()}
             />
           )}
 

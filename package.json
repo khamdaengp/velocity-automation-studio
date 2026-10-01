@@ -1,0 +1,73 @@
+{
+  "name": "speedtest-ide",
+  "version": "1.0.11",
+  "description": "Next-Gen Ultra-Fast Test Automation IDE powered by Playwright and Vite",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build && node -e \"require('fs').copyFileSync('src/main/worker.js', 'out/main/worker.js'); require('fs').copyFileSync('src/main/tcInterpreter.js', 'out/main/tcInterpreter.js')\"",
+    "preview": "electron-vite preview",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.velocity.automationstudio",
+    "productName": "Velocity Automation Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "build/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "out/main/worker.js",
+      "out/main/tcInterpreter.js"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
+    "monaco-editor": "^0.52.2",
+    "mysql2": "^3.24.5",
+    "pg": "^8.23.1",
+    "playwright": "^1.50.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^7.0.0"
+  }
+}

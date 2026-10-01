@@ -1,0 +1,10 @@
+{
+  "id": "tcs-001",
+  "name": "Regression Test Suite",
+  "parallel": false,
+  "persistSession": false,
+  "timeout": 30000,
+  "tests": [
+    "test-case/demo_nav.tc"
+  ]
+}

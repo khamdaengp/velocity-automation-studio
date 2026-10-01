@@ -1,0 +1,30 @@
+{
+  "id": "tc-001",
+  "name": "Navigation & Title Verification Suite",
+  "commands": [
+    {
+      "id": "cmd-1",
+      "command": "open",
+      "target": "https://playwright.dev",
+      "value": ""
+    },
+    {
+      "id": "cmd-2",
+      "command": "assertTitle",
+      "target": "Playwright",
+      "value": ""
+    },
+    {
+      "id": "cmd-3",
+      "command": "assertText",
+      "target": "h1",
+      "value": "Playwright"
+    },
+    {
+      "id": "cmd-4",
+      "command": "screenshot",
+      "target": "tests/Velocity_Demo_Suite/report/verified.png",
+      "value": ""
+    }
+  ]
+}

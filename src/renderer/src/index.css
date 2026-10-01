@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+body {
+  margin: 0;
+  background-color: #0b0f19;
+  color: #f1f5f9;
+  overflow: hidden;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  transition: all 0.15s ease-in-out;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-record {
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  color: white;
+}
+.btn-record:hover {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.35);
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-tree-row {
+  border-radius: 3px;
+}
+
+.sidebar-tree-row:hover {
+  background-color: #2a2d2e !important;
+}
+
+.sidebar-tree-row .row-actions {
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+
+.sidebar-tree-row:hover .row-actions {
+  opacity: 1;
+}
+
+.row-actions button:hover {
+  color: #ffffff !important;
+  transform: scale(1.1);
+}

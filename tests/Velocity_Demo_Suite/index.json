@@ -1,0 +1,12 @@
+{
+  "name": "Velocity_Demo_Suite",
+  "env": "test",
+  "delayCommand": 0,
+  "timeoutCommand": 10,
+  "profiles": [
+    "Default",
+    "Staging",
+    "Production"
+  ],
+  "reportFolder": "report"
+}

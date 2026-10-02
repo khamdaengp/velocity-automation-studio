@@ -17,7 +17,8 @@ import {
   FlaskConical,
   CheckCircle2,
   FolderInput,
-  FolderOutput
+  FolderOutput,
+  LayoutList
 } from 'lucide-react'
 import { FileNode } from '../types'
 
@@ -28,7 +29,7 @@ interface SidebarProps {
   onRefresh: () => void
   onNewProject: (parentRelativePath?: string) => void
   onNewReferenceProject: () => void
-  onNewTest: (parentRelativePath?: string) => void
+  onNewTest: (parentRelativePath?: string, isNoCode?: boolean) => void
   onRenameNode: (node: FileNode) => void
   onDeleteNode: (node: FileNode) => void
   onRunSuite: (node: FileNode) => void
@@ -273,8 +274,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <span>{title}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
+            onClick={() => onNewTest(undefined, true)}
+            title="New No-Code Visual Test (.tc)"
+            style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px' }}
+          >
+            <LayoutList size={14} />
+          </button>
+          <button
             onClick={() => onNewTest()}
-            title="New Test File"
+            title="New Code Test (.spec.js)"
             style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}
           >
             <FilePlus size={14} />

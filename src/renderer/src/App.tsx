@@ -266,12 +266,14 @@ export const App: React.FC = () => {
     })
   }
 
-  const handleNewTest = (parentRelativePath = '') => {
+  const handleNewTest = (parentRelativePath = '', isNoCode = false) => {
     setDialog({
       isOpen: true,
-      title: 'Create New Test File',
-      description: 'Enter a filename. Supports .spec.js, .spec.ts, or .tc / .tcs format.',
-      initialValue: 'test.spec.js',
+      title: isNoCode ? 'Create New No-Code Test Case (.tc)' : 'Create New Test File',
+      description: isNoCode
+        ? 'Creates a visual No-Code test case. Edit steps using dropdown actions without writing code.'
+        : 'Enter a filename. Supports .spec.js, .spec.ts, or .tc / .tcs format.',
+      initialValue: isNoCode ? 'my-test-flow.tc' : 'test.spec.js',
       isPrompt: true,
       confirmLabel: 'Create File',
       onCancel: () => setDialog((prev) => ({ ...prev, isOpen: false })),

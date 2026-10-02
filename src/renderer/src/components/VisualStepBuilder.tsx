@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import { TestCaseData, TcCommand, AuthProfile } from '../types'
 import { AuthSessionModal } from './AuthSessionModal'
-import { convertTcToPlaywright } from '../utils/tcToPlaywright'
+import { convertTcToPlaywright, convertPlaywrightToTc } from '../utils/tcToPlaywright'
 
 interface VisualStepBuilderProps {
   content: string
@@ -90,37 +90,52 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
     loadAuthProfiles()
   }, [])
 
-  // Sync content into local state
+  // Sync content into local state (supports both JSON .tc and Playwright code)
   useEffect(() => {
     try {
       if (!content.trim()) {
         const initData: TestCaseData = {
           id: 'tc-' + Date.now(),
-          name: filePath ? filePath.split(/[/\\]/).pop()?.replace('.tc', '') || 'New Test' : 'New Test',
+          name: filePath ? filePath.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '') || 'New Test' : 'New Test',
           description: '',
           commands: [{ command: 'open', target: '{{baseUrl}}', value: '', description: 'Navigate to base URL' }]
         }
         setTestCase(initData)
         setParseError(null)
-        onChange(JSON.stringify(initData, null, 2))
         return
       }
 
-      const parsed = JSON.parse(content)
-      if (parsed && Array.isArray(parsed.commands)) {
-        setTestCase(parsed)
-        setParseError(null)
-      } else {
-        setParseError('The active file does not contain a valid declarative commands array.')
+      const trimmed = content.trim()
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(content)
+          if (parsed && Array.isArray(parsed.commands)) {
+            setTestCase(parsed)
+            setParseError(null)
+            return
+          }
+        } catch {}
       }
+
+      // If not JSON, parse Playwright / JavaScript code into visual steps
+      const parsedFromCode = convertPlaywrightToTc(content, filePath)
+      setTestCase(parsedFromCode)
+      setParseError(null)
     } catch (err: any) {
-      setParseError('Unable to parse as JSON. Switch to Code mode to view or repair.')
+      const parsedFromCode = convertPlaywrightToTc(content, filePath)
+      setTestCase(parsedFromCode)
+      setParseError(null)
     }
-  }, [content])
+  }, [content, filePath])
 
   const notifyChange = (updated: TestCaseData) => {
     setTestCase(updated)
-    onChange(JSON.stringify(updated, null, 2))
+    const isCodeFile = filePath && !filePath.endsWith('.tc')
+    if (isCodeFile) {
+      onChange(convertTcToPlaywright(updated))
+    } else {
+      onChange(JSON.stringify(updated, null, 2))
+    }
   }
 
   const handleUpdateCommand = (index: number, field: keyof TcCommand, val: string) => {

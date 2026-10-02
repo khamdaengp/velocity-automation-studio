@@ -8,8 +8,9 @@ export function convertTcToPlaywright(tcData: TestCaseData | string): string {
   if (typeof tcData === 'string') {
     try {
       data = JSON.parse(tcData)
-    } catch (e: any) {
-      throw new Error('Invalid JSON format: ' + e.message)
+    } catch {
+      // If it's already code or not JSON, return as is
+      return tcData
     }
   } else {
     data = tcData
@@ -192,6 +193,201 @@ export function convertTcToPlaywright(tcData: TestCaseData | string): string {
 
   lines.push(`console.log('✅ Test finished successfully!');`)
   return lines.join('\n')
+}
+
+/**
+ * Parses Playwright / JavaScript code into visual TestCaseData (.tc format)
+ */
+export function convertPlaywrightToTc(jsCode: string, filePath?: string): TestCaseData {
+  if (!jsCode || !jsCode.trim()) {
+    return {
+      id: 'tc-' + Date.now(),
+      name: filePath ? filePath.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '') || 'New Test' : 'New Test',
+      description: 'Declarative No-Code Automation Flow',
+      commands: [{ command: 'open', target: 'https://example.com', value: '', description: 'Initial navigation' }]
+    }
+  }
+
+  // If already valid JSON tc format:
+  try {
+    const parsed = JSON.parse(jsCode)
+    if (parsed && Array.isArray(parsed.commands)) {
+      return parsed
+    }
+  } catch {}
+
+  const commands: TcCommand[] = []
+  const lines = jsCode.split('\n')
+  let lastDescription = ''
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i]
+    const trimmed = rawLine.trim()
+
+    if (!trimmed || trimmed.startsWith('/*') || trimmed.startsWith('*') || trimmed.startsWith('*/')) {
+      continue
+    }
+
+    // Step comments like: // Step 1: Click login button
+    if (trimmed.startsWith('//')) {
+      const commentText = trimmed.replace(/^\/\/\s*(Step\s*\d+:?\s*)?/, '').trim()
+      if (commentText && !commentText.startsWith('[') && !commentText.includes('Test finished')) {
+        lastDescription = commentText
+      }
+      continue
+    }
+
+    const desc = lastDescription
+    lastDescription = ''
+
+    // 1. page.goto('url')
+    let match = trimmed.match(/page\.goto\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'open', target: match[1], value: '', description: desc || 'Open URL' })
+      continue
+    }
+
+    // 2. page.fill('selector', 'value') or page.type
+    match = trimmed.match(/page\.(?:fill|type|sendKeys)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]*)['"`]/)
+    if (match) {
+      commands.push({ command: 'type', target: match[1], value: match[2], description: desc || 'Type text' })
+      continue
+    }
+
+    // 3. page.click('selector')
+    match = trimmed.match(/page\.click\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'click', target: match[1], value: '', description: desc || 'Click element' })
+      continue
+    }
+
+    // 4. page.dblclick('selector')
+    match = trimmed.match(/page\.(?:dblclick|doubleClick)\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'dblclick', target: match[1], value: '', description: desc || 'Double click' })
+      continue
+    }
+
+    // 5. page.press('selector', 'key')
+    match = trimmed.match(/page\.press\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]*)['"`]/)
+    if (match) {
+      commands.push({ command: 'press', target: match[1], value: match[2], description: desc || 'Press key' })
+      continue
+    }
+
+    // 6. page.check('selector')
+    match = trimmed.match(/page\.check\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'check', target: match[1], value: '', description: desc || 'Check checkbox' })
+      continue
+    }
+
+    // 7. page.uncheck('selector')
+    match = trimmed.match(/page\.uncheck\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'uncheck', target: match[1], value: '', description: desc || 'Uncheck checkbox' })
+      continue
+    }
+
+    // 8. page.hover('selector')
+    match = trimmed.match(/page\.hover\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'hover', target: match[1], value: '', description: desc || 'Hover element' })
+      continue
+    }
+
+    // 9. page.selectOption('selector', 'value')
+    match = trimmed.match(/page\.(?:selectOption|select)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]*)['"`]/)
+    if (match) {
+      commands.push({ command: 'select', target: match[1], value: match[2], description: desc || 'Select option' })
+      continue
+    }
+
+    // 10. page.screenshot({ path: '...' })
+    match = trimmed.match(/page\.screenshot\s*\(\s*\{[^}]*path:\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'screenshot', target: match[1], value: '', description: desc || 'Take screenshot' })
+      continue
+    }
+
+    // 11. locator('selector').waitFor({ state: 'visible' | 'hidden' })
+    match = trimmed.match(/(?:page\.locator|locator)\s*\(\s*['"`]([^'"`]+)['"`]\)[^;]*waitFor\s*\(\s*\{[^}]*state:\s*['"`](visible|hidden)['"`]/)
+    if (match) {
+      const isVisible = match[2] === 'visible'
+      commands.push({
+        command: isVisible ? 'assertvisible' : 'assertnotvisible',
+        target: match[1],
+        value: '',
+        description: desc || (isVisible ? 'Verify visible' : 'Verify hidden')
+      })
+      continue
+    }
+
+    // 12. page.waitForSelector('selector')
+    match = trimmed.match(/page\.waitForSelector\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'assertvisible', target: match[1], value: '', description: desc || 'Wait for element' })
+      continue
+    }
+
+    // 13. waitForTimeout(ms) or setTimeout(..., ms)
+    match = trimmed.match(/(?:waitForTimeout|setTimeout\s*\([^,]+,\s*)(\d+)/)
+    if (match) {
+      commands.push({ command: 'pause', target: match[1], value: '', description: desc || `Wait ${match[1]}ms` })
+      continue
+    }
+
+    // 14. api.get('url')
+    match = trimmed.match(/api\.get\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'apiget', target: match[1], value: '', description: desc || 'API GET request' })
+      continue
+    }
+
+    // 15. api.post('url', ...)
+    match = trimmed.match(/api\.post\s*\(\s*['"`]([^'"`]+)['"`]/)
+    if (match) {
+      commands.push({ command: 'apipost', target: match[1], value: '', description: desc || 'API POST request' })
+      continue
+    }
+
+    // 16. db.query('target', 'sql')
+    match = trimmed.match(/db\.query\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]*)['"`]/)
+    if (match) {
+      commands.push({ command: 'dbquery', target: match[1], value: match[2], description: desc || 'Database Query' })
+      continue
+    }
+
+    // 17. asserttext (textContent / toContainText / includes)
+    if (trimmed.includes('includes(') || trimmed.includes('toContainText(')) {
+      const selMatch = trimmed.match(/['"`]([#.][^'"`]+)['"`]/)
+      const valMatch = trimmed.match(/(?:includes|toContainText)\s*\(\s*['"`]([^'"`]+)['"`]\)/)
+      if (selMatch && valMatch) {
+        commands.push({
+          command: 'asserttext',
+          target: selMatch[1],
+          value: valMatch[1],
+          description: desc || 'Assert text contains'
+        })
+        continue
+      }
+    }
+
+    // 18. console.log statements
+    if (trimmed.startsWith('console.log(')) {
+      continue
+    }
+  }
+
+  const baseName = filePath ? filePath.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '') || 'Test Case' : 'Test Case'
+  return {
+    id: 'tc-' + Date.now(),
+    name: baseName,
+    description: 'Imported from script code',
+    commands: commands.length > 0 ? commands : [
+      { command: 'open', target: 'https://example.com', value: '', description: 'Initial navigation' }
+    ]
+  }
 }
 
 function escapeString(str: string): string {

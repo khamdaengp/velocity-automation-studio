@@ -62,9 +62,22 @@ export const Editor: React.FC<EditorProps> = ({
   const [splitIsDirty, setSplitIsDirty] = useState<boolean>(false)
   const [splitEditorMode, setSplitEditorMode] = useState<'visual' | 'code'>('code')
 
-  // Main editor mode (Visual or Code for .tc files)
-  const isDeclarativeTc = filePath ? filePath.endsWith('.tc') : false
-  const [editorMode, setEditorMode] = useState<'visual' | 'code'>(isDeclarativeTc ? 'visual' : 'code')
+  // Main editor mode (Visual or Code for supported files)
+  const isSupportedFile = filePath ? /\.(tc|spec\.[jt]s|test\.[jt]s|js|ts)$/i.test(filePath) : false
+  const [editorMode, setEditorMode] = useState<'visual' | 'code'>(filePath?.endsWith('.tc') ? 'visual' : 'code')
+
+  const handleSwitchMode = (mode: 'visual' | 'code') => {
+    if (mode === editorMode) return
+    if (mode === 'code' && filePath && !filePath.endsWith('.tc')) {
+      try {
+        const parsed = JSON.parse(content)
+        if (parsed && Array.isArray(parsed.commands)) {
+          onChange(convertTcToPlaywright(parsed))
+        }
+      } catch {}
+    }
+    setEditorMode(mode)
+  }
 
   useEffect(() => {
     if (filePath?.endsWith('.tc')) {
@@ -203,6 +216,20 @@ export const Editor: React.FC<EditorProps> = ({
   const rightExtension = rightFileName.split('.').pop() || 'js'
   const rightLanguage = rightExtension === 'json' || rightExtension === 'tc' || rightExtension === 'tcs' ? 'json' : rightExtension === 'ts' ? 'typescript' : 'javascript'
   const isRightTc = splitFilePath ? splitFilePath.endsWith('.tc') : false
+  const isRightSupportedFile = splitFilePath ? /\.(tc|spec\.[jt]s|test\.[jt]s|js|ts)$/i.test(splitFilePath) : false
+
+  const handleSplitSwitchMode = (mode: 'visual' | 'code') => {
+    if (mode === splitEditorMode) return
+    if (mode === 'code' && splitFilePath && !splitFilePath.endsWith('.tc')) {
+      try {
+        const parsed = JSON.parse(splitContent)
+        if (parsed && Array.isArray(parsed.commands)) {
+          setSplitContent(convertTcToPlaywright(parsed))
+        }
+      } catch {}
+    }
+    setSplitEditorMode(mode)
+  }
 
   // Path segments for breadcrumbs
   const pathParts = filePath.replace(/\\/g, '/').split('/').filter(Boolean)
@@ -415,8 +442,8 @@ export const Editor: React.FC<EditorProps> = ({
 
         {/* Tab Right Action Icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px' }}>
-          {/* Dual-Mode Switcher for Left/Primary Editor */}
-          {isDeclarativeTc && (
+          {/* Dual-Mode Switcher for Left/Primary Editor (Available for Any Test or Script at Any Time!) */}
+          {isSupportedFile && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -426,7 +453,7 @@ export const Editor: React.FC<EditorProps> = ({
               marginRight: '6px'
             }}>
               <button
-                onClick={() => setEditorMode('visual')}
+                onClick={() => handleSwitchMode('visual')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -440,13 +467,13 @@ export const Editor: React.FC<EditorProps> = ({
                   fontWeight: 600,
                   cursor: 'pointer'
                 }}
-                title="No-Code Visual Step Builder"
+                title="No-Code Visual Step Builder (Switch anytime)"
               >
                 <LayoutList size={12} />
                 <span>Visual</span>
               </button>
               <button
-                onClick={() => setEditorMode('code')}
+                onClick={() => handleSwitchMode('code')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -460,7 +487,7 @@ export const Editor: React.FC<EditorProps> = ({
                   fontWeight: 600,
                   cursor: 'pointer'
                 }}
-                title="Monaco Code Script Editor"
+                title="Monaco Code Script Editor (Switch anytime)"
               >
                 <Code2 size={12} />
                 <span>Code</span>
@@ -604,13 +631,13 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {/* Main Body */}
-          {editorMode === 'visual' && isDeclarativeTc ? (
+          {editorMode === 'visual' && isSupportedFile ? (
             <VisualStepBuilder
               content={content}
               onChange={handleLeftChange}
               filePath={filePath}
               onConvertToCode={onConvertToCode}
-              onSwitchToCode={() => setEditorMode('code')}
+              onSwitchToCode={() => handleSwitchMode('code')}
             />
           ) : (
             <div style={{ flex: 1 }}>
@@ -782,8 +809,8 @@ export const Editor: React.FC<EditorProps> = ({
 
               {/* Right Tab Controls */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', paddingRight: '8px' }}>
-                {/* Dual-Mode Switcher for Right Pane (if .tc) */}
-                {isRightTc && (
+                {/* Dual-Mode Switcher for Right Pane */}
+                {isRightSupportedFile && (
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -793,7 +820,7 @@ export const Editor: React.FC<EditorProps> = ({
                     marginRight: '6px'
                   }}>
                     <button
-                      onClick={() => setSplitEditorMode('visual')}
+                      onClick={() => handleSplitSwitchMode('visual')}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -807,13 +834,13 @@ export const Editor: React.FC<EditorProps> = ({
                         fontWeight: 600,
                         cursor: 'pointer'
                       }}
-                      title="Visual Step Builder"
+                      title="Visual Step Builder (Switch anytime)"
                     >
                       <LayoutList size={11} />
                       <span>Visual</span>
                     </button>
                     <button
-                      onClick={() => setSplitEditorMode('code')}
+                      onClick={() => handleSplitSwitchMode('code')}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -827,7 +854,7 @@ export const Editor: React.FC<EditorProps> = ({
                         fontWeight: 600,
                         cursor: 'pointer'
                       }}
-                      title="Monaco Code Script Editor"
+                      title="Code Editor (Switch anytime)"
                     >
                       <Code2 size={11} />
                       <span>Code</span>
@@ -915,13 +942,13 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
 
             {/* Right Content */}
-            {splitEditorMode === 'visual' && splitFilePath && isRightTc ? (
+            {splitEditorMode === 'visual' && splitFilePath && isRightSupportedFile ? (
               <VisualStepBuilder
                 content={splitContent}
                 onChange={handleRightChange}
                 filePath={splitFilePath}
                 onConvertToCode={onConvertToCode}
-                onSwitchToCode={() => setSplitEditorMode('code')}
+                onSwitchToCode={() => handleSplitSwitchMode('code')}
               />
             ) : (
               <div style={{ flex: 1 }}>

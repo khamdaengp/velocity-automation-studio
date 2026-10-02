@@ -5,7 +5,7 @@ await page.goto('https://en.wikipedia.org', { waitUntil: 'domcontentloaded' });
 console.log('🌐 Page loaded: Wikipedia Homepage');
 
 // Type into search box with zero lag
-const searchInput = page.locator('input[name="search"]');
+const searchInput = page.locator('#searchInput').first();
 await searchInput.fill('Playwright (software)');
 console.log('⌨️ Input filled into search bar');
 

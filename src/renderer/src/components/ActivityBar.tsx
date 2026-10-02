@@ -1,7 +1,6 @@
-import React from 'react'
-import { Files, FlaskConical, Globe, Database, Layers, Settings } from 'lucide-react'
+import { Files, FlaskConical, Globe, Database, Layers, Settings, Video } from 'lucide-react'
 
-export type ActivityView = 'explorer' | 'suites' | 'api' | 'database' | 'environments' | 'settings'
+export type ActivityView = 'explorer' | 'suites' | 'recorder' | 'api' | 'database' | 'environments' | 'settings'
 
 interface ActivityBarProps {
   activeView: ActivityView
@@ -58,6 +57,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           backgroundColor: '#ef4448'
         }} />
       ) : null
+    },
+    {
+      id: 'recorder',
+      label: 'Web Inspector & Recorder (Codegen)',
+      icon: <Video size={22} strokeWidth={1.75} />
     },
     {
       id: 'api',

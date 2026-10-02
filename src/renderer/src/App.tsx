@@ -7,6 +7,7 @@ import { BottomPanel } from './components/BottomPanel'
 import { ApiTester } from './components/ApiTester'
 import { DatabaseStudio } from './components/DatabaseStudio'
 import { EnvironmentManager } from './components/EnvironmentManager'
+import { WebInspector } from './components/WebInspector'
 import { StatusBar } from './components/StatusBar'
 import { DialogModal, DialogConfig } from './components/DialogModal'
 import { FileNode, LogEntry, EnvironmentsData } from './types'
@@ -555,7 +556,21 @@ export const App: React.FC = () => {
           overflow: 'hidden',
           backgroundColor: '#1e1e1e'
         }}>
-          {activeView === 'api' ? (
+          {activeView === 'recorder' ? (
+            <WebInspector
+              recordUrl={recordUrl}
+              setRecordUrl={setRecordUrl}
+              onRecord={handleRecord}
+              activeEnv={activeEnv}
+              environmentsData={environmentsData}
+              onNewTestFile={async (newFilePath, content) => {
+                await loadTree()
+                setActiveFile(newFilePath)
+                setFileContent(content)
+                setActiveView('explorer')
+              }}
+            />
+          ) : activeView === 'api' ? (
             <ApiTester />
           ) : activeView === 'database' ? (
             <DatabaseStudio />

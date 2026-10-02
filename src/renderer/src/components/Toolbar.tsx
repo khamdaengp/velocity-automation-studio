@@ -23,9 +23,9 @@ interface ToolbarProps {
   onToggleHeadless: () => void
   onRunTest: () => void
   onStopTest: () => void
-  onRecord: () => void
-  recordUrl: string
-  setRecordUrl: (url: string) => void
+  onRecord?: () => void
+  recordUrl?: string
+  setRecordUrl?: (url: string) => void
   memoryMB: number
   onNewTest?: () => void
   onNewSuite?: () => void
@@ -370,46 +370,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           {headless ? <EyeOff size={13} color="#9ca3af" /> : <Eye size={13} color="#38bdf8" />}
           <span>{headless ? 'Headless' : 'Headed'}</span>
         </button>
-
-        {/* Codegen URL & Record Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <input
-            type="text"
-            value={recordUrl}
-            onChange={(e) => setRecordUrl(e.target.value)}
-            placeholder="https://..."
-            style={{
-              padding: '3px 8px',
-              borderRadius: '4px',
-              backgroundColor: '#27272a',
-              border: '1px solid #3f3f46',
-              color: '#f4f4f5',
-              fontSize: '11px',
-              width: '130px',
-              outline: 'none'
-            }}
-          />
-          <button
-            onClick={onRecord}
-            title="Launch Playwright Interactive Recorder"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              backgroundColor: '#be123c',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '11px'
-            }}
-          >
-            <Video size={12} />
-            <span>Record</span>
-          </button>
-        </div>
       </div>
     </header>
   )

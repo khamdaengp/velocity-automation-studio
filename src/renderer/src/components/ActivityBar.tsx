@@ -7,13 +7,17 @@ interface ActivityBarProps {
   onSelectView: (view: ActivityView) => void
   isRunning: boolean
   lastStatus?: 'passed' | 'failed' | null
+  showSidebar?: boolean
+  onToggleSidebar?: () => void
 }
 
 export const ActivityBar: React.FC<ActivityBarProps> = ({
   activeView,
   onSelectView,
   isRunning,
-  lastStatus
+  lastStatus,
+  showSidebar = true,
+  onToggleSidebar
 }) => {
   const topItems: { id: ActivityView; label: string; icon: React.ReactNode; badge?: React.ReactNode }[] = [
     {
@@ -96,11 +100,19 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
       {/* Top Icons */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '4px' }}>
         {topItems.map((item) => {
-          const isActive = activeView === item.id
+          const isActive =
+            activeView === item.id &&
+            (item.id === 'api' || item.id === 'database' || item.id === 'environments' || item.id === 'settings' || item.id === 'recorder' || showSidebar)
           return (
             <button
               key={item.id}
-              onClick={() => onSelectView(item.id)}
+              onClick={() => {
+                if (activeView === item.id && (item.id === 'explorer' || item.id === 'suites')) {
+                  onToggleSidebar?.()
+                } else {
+                  onSelectView(item.id)
+                }
+              }}
               title={item.label}
               style={{
                 position: 'relative',

@@ -1,6 +1,6 @@
 {
   "name": "speedtest-ide",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Next-Gen Ultra-Fast Test Automation IDE powered by Playwright and Vite",
   "main": "./out/main/index.js",
   "scripts": {

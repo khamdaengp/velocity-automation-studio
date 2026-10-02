@@ -85,3 +85,11 @@ export interface TestCaseData {
   authState?: string
   commands: TcCommand[]
 }
+
+export interface EditorTab {
+  path: string
+  name: string
+  content: string
+  isDirty: boolean
+}
+

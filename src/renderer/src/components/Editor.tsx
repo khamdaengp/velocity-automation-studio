@@ -17,6 +17,7 @@ import {
   LayoutList,
   Code2
 } from 'lucide-react'
+import { EditorTab } from '../types'
 
 interface EditorProps {
   filePath: string | null
@@ -29,6 +30,10 @@ interface EditorProps {
   showTerminal?: boolean
   isDirty: boolean
   allFiles?: { path: string; name: string }[]
+  tabs?: EditorTab[]
+  activeTabPath?: string | null
+  onSelectTab?: (path: string) => void
+  onCloseTab?: (path: string) => void
 }
 
 export const Editor: React.FC<EditorProps> = ({
@@ -41,7 +46,11 @@ export const Editor: React.FC<EditorProps> = ({
   onToggleTerminal,
   showTerminal,
   isDirty,
-  allFiles = []
+  allFiles = [],
+  tabs = [],
+  activeTabPath,
+  onSelectTab,
+  onCloseTab
 }) => {
   // Split Editor states
   const [isSplit, setIsSplit] = useState<boolean>(false)
@@ -268,47 +277,135 @@ export const Editor: React.FC<EditorProps> = ({
         justifyContent: 'space-between',
         padding: '0'
       }}>
-        {/* Active Tab */}
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
-          <div style={{
-            height: '100%',
-            backgroundColor: '#1e1e1e',
-            borderTop: '2px solid #007acc',
-            borderRight: '1px solid #27272a',
-            padding: '0 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            color: '#ffffff'
-          }}>
-            {getFileIcon(fileName)}
-            <span>{fileName}</span>
-            {isDirty ? (
-              <span style={{ color: '#ffffff', fontSize: '14px', lineHeight: 1 }}>●</span>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onClose?.()
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#858585',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderRadius: '3px'
-                }}
-                title="Close (Ctrl+W)"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
+        {/* Multi-Tab List or Single Tab */}
+        <div style={{
+          display: 'flex',
+          height: '100%',
+          alignItems: 'center',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          scrollbarWidth: 'none',
+          flex: 1,
+          minWidth: 0
+        }}>
+          {tabs && tabs.length > 0 ? (
+            tabs.map((tab) => {
+              const isActive = tab.path === (activeTabPath || filePath)
+              const tabFileName = tab.name || tab.path.split(/[\\/]/).pop() || tab.path
+              return (
+                <div
+                  key={tab.path}
+                  onClick={() => onSelectTab?.(tab.path)}
+                  onMouseDown={(e) => {
+                    if (e.button === 1) {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onCloseTab?.(tab.path)
+                    }
+                  }}
+                  style={{
+                    height: '100%',
+                    backgroundColor: isActive ? '#1e1e1e' : '#18181b',
+                    borderTop: isActive ? '2px solid #007acc' : '2px solid transparent',
+                    borderRight: '1px solid #27272a',
+                    padding: '0 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    color: isActive ? '#ffffff' : '#9ca3af',
+                    flexShrink: 0,
+                    maxWidth: '180px',
+                    userSelect: 'none',
+                    transition: 'background-color 0.1s, color 0.1s'
+                  }}
+                  title={tab.path}
+                >
+                  {getFileIcon(tabFileName)}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {tabFileName}
+                  </span>
+
+                  <div
+                    style={{ display: 'flex', alignItems: 'center' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onCloseTab?.(tab.path)
+                    }}
+                  >
+                    {tab.isDirty ? (
+                      <span
+                        style={{ color: '#ffffff', fontSize: '13px', lineHeight: 1, padding: '2px' }}
+                        title="Unsaved changes (Click to close)"
+                      >
+                        ●
+                      </span>
+                    ) : (
+                      <button
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '3px',
+                          opacity: isActive ? 0.8 : 0.4
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = isActive ? '0.8' : '0.4')}
+                        title="Close Tab (Ctrl+W)"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            <div style={{
+              height: '100%',
+              backgroundColor: '#1e1e1e',
+              borderTop: '2px solid #007acc',
+              borderRight: '1px solid #27272a',
+              padding: '0 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              color: '#ffffff'
+            }}>
+              {getFileIcon(fileName)}
+              <span>{fileName}</span>
+              {isDirty ? (
+                <span style={{ color: '#ffffff', fontSize: '14px', lineHeight: 1 }}>●</span>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClose?.()
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#858585',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRadius: '3px'
+                  }}
+                  title="Close (Ctrl+W)"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Tab Right Action Icons */}

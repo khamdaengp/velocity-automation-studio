@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   FolderInput,
   FolderOutput,
-  LayoutList
+  LayoutList,
+  PanelLeftClose
 } from 'lucide-react'
 import { FileNode } from '../types'
 
@@ -35,6 +36,7 @@ interface SidebarProps {
   onRunSuite: (node: FileNode) => void
   onImportProject?: () => void
   onExportProject?: (node: FileNode) => void
+  onCollapse?: () => void
   activeView?: 'explorer' | 'suites' | 'api' | 'settings'
 }
 
@@ -51,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRunSuite,
   onImportProject,
   onExportProject,
+  onCollapse,
   activeView = 'explorer'
 }) => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -324,6 +327,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <ChevronsDownUp size={13} />
           </button>
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              title="Hide Sidebar (Ctrl+B)"
+              style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}
+            >
+              <PanelLeftClose size={13} />
+            </button>
+          )}
         </div>
       </div>
 

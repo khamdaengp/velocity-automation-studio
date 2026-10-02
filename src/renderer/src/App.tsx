@@ -10,7 +10,7 @@ import { EnvironmentManager } from './components/EnvironmentManager'
 import { WebInspector } from './components/WebInspector'
 import { StatusBar } from './components/StatusBar'
 import { DialogModal, DialogConfig } from './components/DialogModal'
-import { FileNode, LogEntry, EnvironmentsData } from './types'
+import { FileNode, LogEntry, EnvironmentsData, EditorTab } from './types'
 import { Folder, Play, Plus, FolderPlus, Pencil, Settings, FolderOutput } from 'lucide-react'
 
 export const App: React.FC = () => {
@@ -19,6 +19,9 @@ export const App: React.FC = () => {
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [isDirty, setIsDirty] = useState<boolean>(false)
+  const [showSidebar, setShowSidebar] = useState<boolean>(true)
+  const [tabs, setTabs] = useState<EditorTab[]>([])
+  const [activeTabPath, setActiveTabPath] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<ActivityView>('explorer')
   const [dialog, setDialog] = useState<DialogConfig>({
     isOpen: false,
@@ -182,33 +185,102 @@ export const App: React.FC = () => {
       } else if ((e.ctrlKey || e.metaKey) && (e.key === '`' || e.key === '~')) {
         e.preventDefault()
         setShowTerminal((prev) => !prev)
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        setShowSidebar((prev) => !prev)
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        if (activeFile) handleCloseTab(activeFile)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeFile, fileContent, headless, selectedNode])
+  }, [activeFile, fileContent, headless, selectedNode, tabs])
 
   const handleSelectNode = async (node: FileNode) => {
     setSelectedNode(node)
     if (!node.isDir) {
-      try {
-        // @ts-ignore
-        const content = await window.api.readFile(node.path)
+      const existing = tabs.find((t) => t.path === node.path)
+      if (existing) {
+        setActiveTabPath(node.path)
         setActiveFile(node.path)
-        setFileContent(content)
-        setIsDirty(false)
-      } catch (e: any) {
-        console.error('Failed to read file:', e)
+        setFileContent(existing.content)
+        setIsDirty(existing.isDirty)
+      } else {
+        try {
+          // @ts-ignore
+          const content = await window.api.readFile(node.path)
+          const newTab: EditorTab = {
+            path: node.path,
+            name: node.name,
+            content,
+            isDirty: false
+          }
+          setTabs((prev) => [...prev, newTab])
+          setActiveTabPath(node.path)
+          setActiveFile(node.path)
+          setFileContent(content)
+          setIsDirty(false)
+        } catch (e: any) {
+          console.error('Failed to read file:', e)
+        }
       }
     }
   }
 
-  const handleSaveFile = async () => {
-    if (!activeFile) return
+  const handleSelectTab = (path: string) => {
+    const tab = tabs.find((t) => t.path === path)
+    if (!tab) return
+    setActiveTabPath(path)
+    setActiveFile(path)
+    setFileContent(tab.content)
+    setIsDirty(tab.isDirty)
+  }
+
+  const handleCloseTab = (path: string) => {
+    const idx = tabs.findIndex((t) => t.path === path)
+    if (idx === -1) return
+    const newTabs = tabs.filter((t) => t.path !== path)
+    setTabs(newTabs)
+    if (activeFile === path) {
+      if (newTabs.length > 0) {
+        const nextIdx = Math.min(idx, newTabs.length - 1)
+        const nextTab = newTabs[nextIdx]
+        setActiveTabPath(nextTab.path)
+        setActiveFile(nextTab.path)
+        setFileContent(nextTab.content)
+        setIsDirty(nextTab.isDirty)
+      } else {
+        setActiveTabPath(null)
+        setActiveFile(null)
+        setFileContent('')
+        setIsDirty(false)
+      }
+    }
+  }
+
+  const handleContentChange = (val: string) => {
+    setFileContent(val)
+    setIsDirty(true)
+    if (activeFile) {
+      setTabs((prev) =>
+        prev.map((t) => (t.path === activeFile ? { ...t, content: val, isDirty: true } : t))
+      )
+    }
+  }
+
+  const handleSaveFile = async (targetFilePath?: string) => {
+    const target = targetFilePath || activeFile
+    if (!target) return
+    const targetTab = tabs.find((t) => t.path === target)
+    const contentToSave = targetTab ? targetTab.content : fileContent
     try {
       // @ts-ignore
-      await window.api.writeFile(activeFile, fileContent)
+      await window.api.writeFile(target, contentToSave)
       setIsDirty(false)
+      setTabs((prev) =>
+        prev.map((t) => (t.path === target ? { ...t, isDirty: false } : t))
+      )
     } catch (e: any) {
       console.error(`Save error: ${e.message}`)
     }
@@ -346,10 +418,7 @@ export const App: React.FC = () => {
         try {
           // @ts-ignore
           await window.api.deleteItem(node.path)
-          if (activeFile === node.path) {
-            setActiveFile(null)
-            setFileContent('')
-          }
+          handleCloseTab(node.path)
           await loadTree()
         } catch (e: any) {
           console.error(e)
@@ -376,11 +445,16 @@ export const App: React.FC = () => {
           // @ts-ignore
           const res = await window.api.renameItem(node.path, cleanName)
           if (res?.success) {
+            setTabs((prev) =>
+              prev.map((t) => (t.path === node.path ? { ...t, path: res.newPath, name: cleanName } : t))
+            )
             if (activeFile === node.path) {
               setActiveFile(res.newPath)
+              setActiveTabPath(res.newPath)
             } else if (node.isDir && activeFile && activeFile.startsWith(node.path)) {
               const updatedPath = activeFile.replace(node.path, res.newPath)
               setActiveFile(updatedPath)
+              setActiveTabPath(updatedPath)
             }
             if (selectedNode?.path === node.path) {
               setSelectedNode({ ...node, name: cleanName, path: res.newPath })
@@ -526,13 +600,18 @@ export const App: React.FC = () => {
         {/* Activity Bar (VS Code Left Rail) */}
         <ActivityBar
           activeView={activeView}
-          onSelectView={setActiveView}
+          onSelectView={(v) => {
+            setActiveView(v)
+            setShowSidebar(true)
+          }}
           isRunning={isRunning}
           lastStatus={lastResult?.status}
+          showSidebar={showSidebar}
+          onToggleSidebar={() => setShowSidebar(!showSidebar)}
         />
 
         {/* Primary Sidebar (Explorer / Suites) */}
-        {(activeView === 'explorer' || activeView === 'suites') && (
+        {showSidebar && (activeView === 'explorer' || activeView === 'suites') && (
           <Sidebar
             tree={tree}
             activePath={selectedNode?.path || null}
@@ -546,6 +625,7 @@ export const App: React.FC = () => {
             onRunSuite={handleRunSuite}
             onImportProject={handleImportProject}
             onExportProject={handleExportProject}
+            onCollapse={() => setShowSidebar(false)}
             activeView={activeView}
           />
         )}
@@ -807,19 +887,24 @@ export const App: React.FC = () => {
             <Editor
               filePath={activeFile}
               content={fileContent}
-              onChange={(val) => {
-                setFileContent(val)
-                setIsDirty(true)
-              }}
+              onChange={handleContentChange}
               onSave={handleSaveFile}
               onRunTest={handleRunTest}
               onClose={() => {
-                setActiveFile(null)
-                setSelectedNode(null)
+                if (activeFile) {
+                  handleCloseTab(activeFile)
+                } else {
+                  setActiveFile(null)
+                  setSelectedNode(null)
+                }
               }}
               onToggleTerminal={() => setShowTerminal((prev) => !prev)}
               showTerminal={showTerminal}
               isDirty={isDirty}
+              tabs={tabs}
+              activeTabPath={activeTabPath}
+              onSelectTab={handleSelectTab}
+              onCloseTab={handleCloseTab}
               allFiles={(() => {
                 const list: { path: string; name: string }[] = []
                 const collect = (nodes: FileNode[]) => {

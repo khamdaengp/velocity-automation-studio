@@ -16,15 +16,18 @@ import {
   Terminal,
   Database,
   HelpCircle,
-  FileText
+  FileText,
+  Code2
 } from 'lucide-react'
 import { TestCaseData, TcCommand, AuthProfile } from '../types'
 import { AuthSessionModal } from './AuthSessionModal'
+import { convertTcToPlaywright } from '../utils/tcToPlaywright'
 
 interface VisualStepBuilderProps {
   content: string
   onChange: (newContent: string) => void
   filePath: string
+  onConvertToCode?: (sourcePath: string, codeContent: string) => void
 }
 
 const ACTION_OPTIONS = [
@@ -55,7 +58,8 @@ const ACTION_OPTIONS = [
 export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
   content,
   onChange,
-  filePath
+  filePath,
+  onConvertToCode
 }) => {
   const [testCase, setTestCase] = useState<TestCaseData>({
     id: 'tc-' + Date.now(),
@@ -320,6 +324,34 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
             title="Manage saved browser sessions (e.g. Google Login)"
           >
             Manage Sessions...
+          </button>
+
+          <button
+            onClick={() => {
+              try {
+                const jsCode = convertTcToPlaywright(content)
+                onConvertToCode?.(filePath, jsCode)
+              } catch (err: any) {
+                console.error('Conversion error:', err)
+              }
+            }}
+            style={{
+              backgroundColor: '#0284c7',
+              border: 'none',
+              color: '#ffffff',
+              borderRadius: '4px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            title="Convert this visual test case into native Playwright code (.spec.js)"
+          >
+            <Code2 size={13} />
+            <span>Convert to Code (.spec.js)</span>
           </button>
         </div>
       </div>

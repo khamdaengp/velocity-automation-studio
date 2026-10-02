@@ -18,6 +18,7 @@ import {
   Code2
 } from 'lucide-react'
 import { EditorTab } from '../types'
+import { convertTcToPlaywright } from '../utils/tcToPlaywright'
 
 interface EditorProps {
   filePath: string | null
@@ -34,6 +35,7 @@ interface EditorProps {
   activeTabPath?: string | null
   onSelectTab?: (path: string) => void
   onCloseTab?: (path: string) => void
+  onConvertToCode?: (sourcePath: string, codeContent: string) => void
 }
 
 export const Editor: React.FC<EditorProps> = ({
@@ -50,7 +52,8 @@ export const Editor: React.FC<EditorProps> = ({
   tabs = [],
   activeTabPath,
   onSelectTab,
-  onCloseTab
+  onCloseTab,
+  onConvertToCode
 }) => {
   // Split Editor states
   const [isSplit, setIsSplit] = useState<boolean>(false)
@@ -463,6 +466,39 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
           )}
 
+          {isDeclarativeTc && (
+            <button
+              onClick={() => {
+                if (filePath) {
+                  try {
+                    const jsCode = convertTcToPlaywright(content)
+                    onConvertToCode?.(filePath, jsCode)
+                  } catch (e: any) {
+                    console.error('Conversion error:', e)
+                  }
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                borderRadius: '4px',
+                border: '1px solid #0284c7',
+                backgroundColor: 'rgba(2, 132, 199, 0.15)',
+                color: '#38bdf8',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginRight: '6px'
+              }}
+              title="Convert this No-Code (.tc) visual test case into native Playwright code (.spec.js)"
+            >
+              <Code2 size={12} color="#38bdf8" />
+              <span>Convert to .spec.js</span>
+            </button>
+          )}
+
           {onRunTest && (
             <button
               onClick={() => onRunTest(filePath)}
@@ -571,6 +607,7 @@ export const Editor: React.FC<EditorProps> = ({
               content={content}
               onChange={handleLeftChange}
               filePath={filePath}
+              onConvertToCode={onConvertToCode}
             />
           ) : (
             <div style={{ flex: 1 }}>
@@ -880,6 +917,7 @@ export const Editor: React.FC<EditorProps> = ({
                 content={splitContent}
                 onChange={handleRightChange}
                 filePath={splitFilePath}
+                onConvertToCode={onConvertToCode}
               />
             ) : (
               <div style={{ flex: 1 }}>

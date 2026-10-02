@@ -286,6 +286,57 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleConvertToCode = async (sourcePath: string, codeContent: string) => {
+    try {
+      const targetPath = sourcePath.endsWith('.tc')
+        ? sourcePath.replace(/\.tc$/, '.spec.js')
+        : `${sourcePath}.spec.js`
+
+      // @ts-ignore
+      await window.api.writeFile(targetPath, codeContent)
+      await loadTree()
+
+      const fileName = targetPath.split(/[/\\]/).pop() || 'test.spec.js'
+      const existingTab = tabs.find((t) => t.path === targetPath)
+      if (existingTab) {
+        setTabs((prev) =>
+          prev.map((t) =>
+            t.path === targetPath ? { ...t, content: codeContent, isDirty: false } : t
+          )
+        )
+      } else {
+        const newTab: EditorTab = {
+          path: targetPath,
+          name: fileName,
+          content: codeContent,
+          isDirty: false
+        }
+        setTabs((prev) => [...prev, newTab])
+      }
+      setActiveTabPath(targetPath)
+      setActiveFile(targetPath)
+      setFileContent(codeContent)
+      setIsDirty(false)
+
+      setLogs((prev) => [
+        ...prev,
+        `⚡ [Converter] Successfully converted No-Code test to Playwright script: ${fileName}`
+      ])
+      setShowTerminal(true)
+    } catch (e: any) {
+      console.error('Failed to convert to code:', e)
+      setDialog({
+        isOpen: true,
+        title: 'Conversion Error',
+        description: e.message || 'Failed to convert test case to code.',
+        isPrompt: false,
+        confirmLabel: 'OK',
+        onCancel: () => setDialog((prev) => ({ ...prev, isOpen: false })),
+        onConfirm: () => setDialog((prev) => ({ ...prev, isOpen: false }))
+      })
+    }
+  }
+
   const handleNewProject = (parentRelativePath = '') => {
     const defaultName = parentRelativePath ? 'sub-project-name' : 'Project_A'
     setDialog({
@@ -905,6 +956,7 @@ export const App: React.FC = () => {
               activeTabPath={activeTabPath}
               onSelectTab={handleSelectTab}
               onCloseTab={handleCloseTab}
+              onConvertToCode={handleConvertToCode}
               allFiles={(() => {
                 const list: { path: string; name: string }[] = []
                 const collect = (nodes: FileNode[]) => {

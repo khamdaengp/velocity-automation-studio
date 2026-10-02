@@ -28,6 +28,7 @@ interface VisualStepBuilderProps {
   onChange: (newContent: string) => void
   filePath: string
   onConvertToCode?: (sourcePath: string, codeContent: string) => void
+  onSwitchToCode?: () => void
 }
 
 const ACTION_OPTIONS = [
@@ -59,7 +60,8 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
   content,
   onChange,
   filePath,
-  onConvertToCode
+  onConvertToCode,
+  onSwitchToCode
 }) => {
   const [testCase, setTestCase] = useState<TestCaseData>({
     id: 'tc-' + Date.now(),
@@ -200,21 +202,40 @@ export const VisualStepBuilder: React.FC<VisualStepBuilderProps> = ({
           <p style={{ color: '#a1a1aa', fontSize: '13px', marginBottom: '20px' }}>
             {parseError}
           </p>
-          <button
-            onClick={handleInitTestCase}
-            style={{
-              backgroundColor: '#0284c7',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '8px 16px',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer'
-            }}
-          >
-            Convert to No-Code Visual Test Case
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {onSwitchToCode && (
+              <button
+                onClick={onSwitchToCode}
+                style={{
+                  backgroundColor: '#27272a',
+                  color: '#38bdf8',
+                  border: '1px solid #0284c7',
+                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Open in Code Editor
+              </button>
+            )}
+            <button
+              onClick={handleInitTestCase}
+              style={{
+                backgroundColor: '#0284c7',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '8px 16px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              Reset to No-Code Visual Test Case
+            </button>
+          </div>
         </div>
       </div>
     )

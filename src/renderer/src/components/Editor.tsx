@@ -69,6 +69,8 @@ export const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     if (filePath?.endsWith('.tc')) {
       setEditorMode('visual')
+    } else {
+      setEditorMode('code')
     }
     // If split is open with same file, update splitContent as well
     if (isSplit && splitFilePath === filePath) {
@@ -602,12 +604,13 @@ export const Editor: React.FC<EditorProps> = ({
           </div>
 
           {/* Main Body */}
-          {editorMode === 'visual' ? (
+          {editorMode === 'visual' && isDeclarativeTc ? (
             <VisualStepBuilder
               content={content}
               onChange={handleLeftChange}
               filePath={filePath}
               onConvertToCode={onConvertToCode}
+              onSwitchToCode={() => setEditorMode('code')}
             />
           ) : (
             <div style={{ flex: 1 }}>
@@ -912,12 +915,13 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
 
             {/* Right Content */}
-            {splitEditorMode === 'visual' && splitFilePath ? (
+            {splitEditorMode === 'visual' && splitFilePath && isRightTc ? (
               <VisualStepBuilder
                 content={splitContent}
                 onChange={handleRightChange}
                 filePath={splitFilePath}
                 onConvertToCode={onConvertToCode}
+                onSwitchToCode={() => setSplitEditorMode('code')}
               />
             ) : (
               <div style={{ flex: 1 }}>
